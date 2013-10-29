@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<info>
+    <id>mySchoolCalendar</id>
+    <name>MySchool Calendar</name>
+    <description>Add mySchool Termine in the Calendar</description>
+    <version>0.0.1</version>
+    <licence>AGPL</licence>
+    <author>Frank Wolbring</author>
+    <require>5</require>
+
+    <types>
+        <type>calendar</type>
+    </types>
+</info>
