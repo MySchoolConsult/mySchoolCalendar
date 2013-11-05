@@ -8,7 +8,7 @@
     <author>Frank Wolbring</author>
     <require>5</require>
 
-    <types>
-        <type>calendar</type>
-    </types>
+    <remote>
+        <mysccaldav>appinfo/remote.php</mysccaldav>
+    </remote>
 </info>
