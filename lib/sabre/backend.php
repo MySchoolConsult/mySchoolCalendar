@@ -26,41 +26,25 @@ class OC_Connector_Sabre_CalDAV_Backend_MySc extends Sabre_CalDAV_Backend_Abstra
      */
     public function getCalendarsForUser($principalUri)
     {
-        $calendar = array(
-            "id" => "stupla_stue",
-            "uri" => "stupla",
-            "principaluri" => $principalUri,
-            '{DAV:}displayname' => "Stundenplan"
-        );
+        $user = OC_User::getUser();
 
-        return array($calendar);
-    }
+        $sources = MyScEvents::getMyScSources();
 
-    /**
-     * Creates a new calendar for a principal.
-     *
-     * If the creation was a success, an id must be returned that can be used to reference
-     * this calendar in other methods, such as updateCalendar.
-     *
-     * @param string $principalUri
-     * @param string $calendarUri
-     * @param array $properties
-     * @return void
-     */
-    public function createCalendar($principalUri, $calendarUri, array $properties)
-    {
-        // TODO: Implement createCalendar() method.
-    }
+        foreach ($sources as $source) {
+            $uri = $source["uri"];
+            $displayname = $source["displayname"];
 
-    /**
-     * Delete a calendar and all it's objects
-     *
-     * @param mixed $calendarId
-     * @return void
-     */
-    public function deleteCalendar($calendarId)
-    {
-        // TODO: Implement deleteCalendar() method.
+            $calendar = array(
+                "id" => $uri . "_$user",
+                "uri" => $uri,
+                "principaluri" => $principalUri,
+                '{DAV:}displayname' => $displayname
+            );
+
+            $calendars[] = $calendar;
+        }
+
+        return $calendars;
     }
 
     /**
@@ -94,8 +78,11 @@ class OC_Connector_Sabre_CalDAV_Backend_MySc extends Sabre_CalDAV_Backend_Abstra
     {
         $params["calendar_id"] = $calendarId;
 
+        list($type, $user) = explode("_", $calendarId);
+
         $events = MyScEvents::getMyScEvents($params);
 
+// Info: Array scheme
 //        $events[] = array(
 //            "allDay"=> false,
 //            "description" => $description,
@@ -115,7 +102,7 @@ class OC_Connector_Sabre_CalDAV_Backend_MySc extends Sabre_CalDAV_Backend_Abstra
         foreach ($events as $event) {
             $object = array(
                 "id" => $event["id"],
-                "uri" => "stupla_event_" . $event["id"],
+                "uri" => $type . "_event_" . $event["id"],
                 "lastmodified" => time(),
                 "calendarid" => $calendarId,
                 "calendardata" => $event["calendardata"]
@@ -165,58 +152,12 @@ class OC_Connector_Sabre_CalDAV_Backend_MySc extends Sabre_CalDAV_Backend_Abstra
         return $object;
     }
 
-    /**
-     * Creates a new calendar object.
-     *
-     * It is possible return an etag from this function, which will be used in
-     * the response to this PUT request. Note that the ETag must be surrounded
-     * by double-quotes.
-     *
-     * However, you should only really return this ETag if you don't mangle the
-     * calendar-data. If the result of a subsequent GET to this object is not
-     * the exact same as this request body, you should omit the ETag.
-     *
-     * @param mixed $calendarId
-     * @param string $objectUri
-     * @param string $calendarData
-     * @return string|null
-     */
-    public function createCalendarObject($calendarId, $objectUri, $calendarData)
-    {
-        // TODO: Implement createCalendarObject() method.
-    }
-
-    /**
-     * Updates an existing calendarobject, based on it's uri.
-     *
-     * It is possible return an etag from this function, which will be used in
-     * the response to this PUT request. Note that the ETag must be surrounded
-     * by double-quotes.
-     *
-     * However, you should only really return this ETag if you don't mangle the
-     * calendar-data. If the result of a subsequent GET to this object is not
-     * the exact same as this request body, you should omit the ETag.
-     *
-     * @param mixed $calendarId
-     * @param string $objectUri
-     * @param string $calendarData
-     * @return string|null
-     */
-    public function updateCalendarObject($calendarId, $objectUri, $calendarData)
-    {
-        // TODO: Implement updateCalendarObject() method.
-    }
-
-    /**
-     * Deletes an existing calendar object.
-     *
-     * @param mixed $calendarId
-     * @param string $objectUri
-     * @return void
-     */
-    public function deleteCalendarObject($calendarId, $objectUri)
-    {
-        // TODO: Implement deleteCalendarObject() method.
-    }
+// Edit functions, that must exist to match the Interface definition, but needn't to be imlemented because
+// no editing is possible.
+    public function createCalendar($principalUri, $calendarUri, array $properties) {}
+    public function deleteCalendar($calendarId) {}
+    public function createCalendarObject($calendarId, $objectUri, $calendarData) {}
+    public function updateCalendarObject($calendarId, $objectUri, $calendarData) {}
+    public function deleteCalendarObject($calendarId, $objectUri) {}
 
 } 

@@ -7,22 +7,57 @@
  */
 
 class MyScEvents {
-    static function getMyScSources($params) {
+    private static $sources = array(
+        "stupla" => array("self", "getStuplaEvents"),
+        "changes" => array("self", "getChanges"),
+        "substitutions" => array("self", "getSubstitutions")
+    );
 
-
+    static function getMyScSources($params = array()) {
         $base_url = \OCP\Util::linkTo('calendar', 'ajax/events.php').'?calendar_id=';
-        $params['sources'][]
-            = array(
-            'displayname' => "Stundenplan",
-            'uri' => "stupla",
-            'userid' => OC_User::getUser(),
-            'url' => $base_url.'stupla_' . OC_User::getUser(),
-            'backgroundColor' => '#00B32D',
-            'borderColor' => '#888',
-            'textColor' => 'black',
-            'cache' => true,
-            'editable' => false,
+
+        $sources = array(
+            array(
+                'displayname' => "Stundenplan",
+                'uri' => "stupla",
+                'userid' => OC_User::getUser(),
+                'url' => $base_url.'stupla_' . OC_User::getUser(),
+                'backgroundColor' => '#003DF5',
+                'borderColor' => '#888',
+                'textColor' => 'black',
+                'cache' => true,
+                'editable' => false
+            ),
+            array(
+                'displayname' => "Änderungen",
+                'uri' => "changes",
+                'userid' => OC_User::getUser(),
+                'url' => $base_url.'changes_' . OC_User::getUser(),
+                'backgroundColor' => '#003DF5',
+                'borderColor' => '#888',
+                'textColor' => 'whitesmoke',
+                'cache' => true,
+                'editable' => false
+            ),
+            array(
+                'displayname' => "Vertretung",
+                'uri' => "substitutions",
+                'userid' => OC_User::getUser(),
+                'url' => $base_url.'substitutions_' . OC_User::getUser(),
+                'backgroundColor' => '#CC0033',
+                'borderColor' => '#888',
+                'textColor' => 'whitesmoke',
+                'cache' => true,
+                'editable' => false
+            )
         );
+
+        if (!isset($params["sources"])) {
+            return $sources;
+        } else {
+            $params["sources"] = array_merge($params["sources"], $sources);
+        }
+
     }
 
     static function getMyScEvents($params = array()) {
@@ -32,9 +67,14 @@ class MyScEvents {
         $id_org = 863;
         $userkuerzel = $user;
 
-        $oc_user = "stue"; //OC_User::getUser();
+        $oc_user = OC_User::getUser();
 
-        if ($type == "stupla" && $user == $oc_user) {
+        if (array_key_exists($type, self::$sources) && $user == $oc_user) {
+            $func = self::$sources[$type];
+            if ($func === null) {
+                return;
+            }
+
             $pdo = PdoMySchool::getPDO();
 
             $st = $pdo->prepare("SELECT stunde, zeit FROM liste_org_stundenzeiten WHERE id_org=:id_org");
@@ -54,25 +94,16 @@ class MyScEvents {
                 $stunden_zeiten[$c["stunde"]] = $c["zeit"];
             }
 
-            $sql = "SELECT id, tag, monat, jahr, stunde, fach, klasse, raum FROM stupla_stunden WHERE lehrer=:lehrer AND id_org=:id_org";
-
             if (isset($params["object_id"])) {
                 $objectId = $params["object_id"];
                 $sql .= " AND id = $objectId";
+            } else {
+                $objectId = false;
             }
 
-            $st = $pdo->prepare($sql);
-
-            $st->bindValue("lehrer", $userkuerzel);
-            $st->bindValue("id_org", $id_org);
-
-            if (!$st->execute()) {
-                OCP\Util::writeLog(OC_App::getCurrentApp(), __METHOD__ . " PDO Error: " . print_r($pdo->errorInfo(), true), OCP\Util::DEBUG);
-                return;
-            }
-
-            $data = $st->fetchAll(PDO::FETCH_ASSOC);
             $events = array();
+
+            $data = call_user_func($func, $userkuerzel, $id_org, $objectId);
 
             foreach ($data as $id => $stunde) {
                 $tag = $stunde["tag"];
@@ -85,8 +116,8 @@ class MyScEvents {
                 $end = clone($start);
                 $end->add($interval);
 
-                $title = $stunde["fach"];
-                $description = $stunde["klasse"] . " " . $stunde["raum"] . " " . $stunde["fach"];
+                $title = $stunde["title"];
+                $description = $stunde["description"];
 
                 $vevent = Sabre\VObject\Component::create('VEVENT');
 
@@ -117,5 +148,72 @@ class MyScEvents {
             else
                 $params["events"] = array_merge($params["events"], $events);
         }
+    }
+
+    private static function getStuplaEvents($userkuerzel, $id_org, $objectId = false) {
+        $sql = "SELECT id, tag, monat, jahr, stunde, fach, klasse, raum FROM stupla_stunden WHERE lehrer=:lehrer AND id_org=:id_org";
+
+        if ($objectId) {
+            $objectId = $params["object_id"];
+            $sql .= " AND id = $objectId";
+        }
+
+        $pdo = PdoMySchool::getPDO();
+        $st = $pdo->prepare($sql);
+
+        $st->bindValue("lehrer", $userkuerzel);
+        $st->bindValue("id_org", $id_org);
+
+        if (!$st->execute()) {
+            OCP\Util::writeLog(OC_App::getCurrentApp(), __METHOD__ . " PDO Error: " . print_r($pdo->errorInfo(), true), OCP\Util::DEBUG);
+            return;
+        }
+
+        $data = $st->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($data as $line => $stunde) {
+            $data[$line]["title"] = $stunde["fach"];
+            $data[$line]["description"] = $stunde["klasse"] . " " . $stunde["raum"] . " " . $stunde["fach"];
+        }
+
+        return $data;
+    }
+
+    private static function getChanges($userkuerzel, $id_org, $objectId = false) {
+        $data = array(
+            array(
+                "id" => 0,
+                "tag" => 6,
+                "monat" => 11,
+                "jahr" => 2013,
+                "stunde" => 1,
+                "fach" => "ESI",
+                "klasse" => "BFE61",
+                "raum" => "C14",
+                "title" => "ESI",
+                "description" => "Teststunde"
+            )
+        );
+
+        return $data;
+    }
+
+    private static function getSubstitutions($userkuerzel, $id_org, $objectId = false) {
+        $data = array(
+            array(
+                "id" => 0,
+                "tag" => 6,
+                "monat" => 11,
+                "jahr" => 2013,
+                "stunde" => 1,
+                "fach" => "ESI",
+                "klasse" => "BFE61",
+                "raum" => "C14",
+                "title" => "ESI",
+                "description" => "Teststunde"
+            )
+        );
+
+        return $data;
     }
 }
